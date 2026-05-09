@@ -1,0 +1,34 @@
+---
+- name: Update apt cache before docker install
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install docker.io package (fixed version from Ubuntu repository)
+  apt:
+    name: "{{ 'docker.io=' + docker_version if docker_version else 'docker.io' }}"
+    state: present
+    allow_downgrade: yes
+
+- name: Ensure Docker service is started and enabled at boot
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Add users to docker group
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: yes
+  loop: "{{ docker_group_members }}"
+
+- name: Verify Docker installation
+  command: docker --version
+  register: docker_version_output
+  changed_when: false
+
+- name: Print Docker version
+  debug:
+    msg: "Docker installed: {{ docker_version_output.stdout }}"

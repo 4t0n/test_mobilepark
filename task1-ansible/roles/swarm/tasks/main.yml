@@ -1,0 +1,53 @@
+---
+
+- name: Get Swarm worker join token from manager
+  delegate_to: swarm-manager
+  run_once: true
+  command: docker swarm join-token worker -q
+  register: swarm_join_token
+  changed_when: false
+
+- name: Check current Swarm membership status
+  command: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
+  register: swarm_local_state
+  changed_when: false
+
+- name: Join Docker Swarm as worker
+  command: >
+    docker swarm join
+    --token {{ swarm_join_token.stdout }}
+    {{ swarm_manager_ip }}:{{ swarm_port }}
+  when: swarm_local_state.stdout != "active"
+
+- name: Get this node's Swarm ID
+  command: docker info --format '{{ "{{" }}.Swarm.NodeID{{ "}}" }}'
+  register: node_id
+  changed_when: false
+
+- name: Get current node labels
+  delegate_to: swarm-manager
+  command: >
+    docker node inspect {{ node_id.stdout }}
+    --format '{{ "{{" }}json .Spec.Labels{{ "}}" }}'
+  register: current_labels
+  changed_when: false
+
+- name: Add label '{{ swarm_node_label_key }}={{ swarm_node_label_value }}' to Swarm node
+  delegate_to: swarm-manager
+  command: >
+    docker node update
+    --label-add {{ swarm_node_label_key }}={{ swarm_node_label_value }}
+    {{ node_id.stdout }}
+  when: swarm_node_label_key not in (current_labels.stdout | from_json)
+
+- name: Verify node labels are set
+  delegate_to: swarm-manager
+  command: >
+    docker node inspect {{ node_id.stdout }}
+    --format '{{ "{{" }}json .Spec.Labels{{ "}}" }}'
+  register: node_labels
+  changed_when: false
+
+- name: Show node labels
+  debug:
+    msg: "Node {{ inventory_hostname }} labels: {{ node_labels.stdout }}"

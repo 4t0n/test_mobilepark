@@ -1,0 +1,31 @@
+---
+- name: Configure swarm manager
+  hosts: swarm_managers
+  become: yes
+
+  roles:
+    - role: users
+      tags: users
+
+    - role: common
+      tags: common
+
+    - role: docker
+      tags: docker
+
+- name: Configure worker servers and join swarm
+  hosts: servers
+  become: yes
+
+  roles:
+    - role: users
+      tags: users
+
+    - role: common
+      tags: common
+
+    - role: docker
+      tags: docker
+
+    - role: swarm
+      tags: swarm

@@ -1,0 +1,60 @@
+services:
+  ubuntu-worker:
+    image: ubuntu:22.04
+    command: sleep infinity
+    environment:
+      - HOSTNAME={{.Node.Hostname}}
+
+    networks:
+      - db-postgres-net
+      - ds-redis-net
+
+    volumes:
+      - type: bind
+        source: /var/log/mp-ubuntu-worker
+        target: /var/log/app
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "1"
+
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.labels.SERVERTYPE == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 15s
+        max_failure_ratio: 0
+        order: start-first
+
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        failure_action: continue
+        order: stop-first
+
+      resources:
+        limits:
+          cpus: '1'
+          memory: 500M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 60s
+
+networks:
+  db-postgres-net:
+    external: true
+  ds-redis-net:
+    external: true

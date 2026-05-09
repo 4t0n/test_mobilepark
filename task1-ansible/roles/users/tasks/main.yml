@@ -1,0 +1,64 @@
+---
+
+- name: Create groups for admin users
+  group:
+    name: "{{ item.name }}"
+    state: present
+  loop: "{{ admin_users }}"
+
+- name: Create groups for technical users
+  group:
+    name: "{{ item.name }}"
+    state: present
+  loop: "{{ technical_users }}"
+
+- name: Create admin user accounts
+  user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment | default('') }}"
+    group: "{{ item.name }}"
+    groups: sudo
+    append: yes
+    shell: /bin/bash
+    create_home: yes
+    state: present
+    password: "!"
+  loop: "{{ admin_users }}"
+
+- name: Create technical user accounts
+  user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment | default('') }}"
+    group: "{{ item.name }}"
+    shell: /bin/bash
+    create_home: yes
+    state: present
+    password: "!"
+  loop: "{{ technical_users }}"
+
+- name: Add SSH authorized keys for admin users
+  authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_key }}"
+    exclusive: yes
+    state: present
+  loop: "{{ admin_users }}"
+
+- name: Add SSH authorized keys for technical users
+  authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_key }}"
+    exclusive: yes
+    state: present
+  loop: "{{ technical_users }}"
+
+- name: Configure NOPASSWD sudo for technical users
+  lineinfile:
+    path: "/etc/sudoers.d/{{ item.name }}"
+    line: "{{ item.name }} ALL=(ALL) NOPASSWD:ALL"
+    state: present
+    create: yes
+    validate: '/usr/sbin/visudo -cf %s'
+    mode: '0440'
+  loop: "{{ technical_users }}"
+  when: item.sudo_nopasswd | default(false)
